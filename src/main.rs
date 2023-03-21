@@ -1,4 +1,4 @@
-use tracy::Vec3;
+use tracy::Color;
 
 const IMAGE_WIDTH: u32 = 256;
 const IMAGE_HEIGHT: u32 = 256;
@@ -10,7 +10,7 @@ fn main() {
         eprint!("\rScanlines remaining: {} ", j);
 
         for i in 0..IMAGE_WIDTH {
-            let pixel_color = Vec3::new(i as f64 / (IMAGE_WIDTH - 1) as f64, j as f64 / (IMAGE_HEIGHT - 1) as f64, 0.25);
+            let pixel_color = Color::new(i as f64 / (IMAGE_WIDTH - 1) as f64, j as f64 / (IMAGE_HEIGHT - 1) as f64, 0.25);
             pixel_color.print_color();
         }
     }
