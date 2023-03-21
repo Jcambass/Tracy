@@ -1,6 +1,9 @@
 use std::ops::{Neg, Index, MulAssign, AddAssign, DivAssign, Add, Sub, Mul, Div, IndexMut};
 
-#[derive(Debug)]
+pub mod ray;
+
+// TODO: Reconsider using borrow instead of copy.
+#[derive(Debug, Clone, Copy)]
 pub struct Vec3 {
     e: [f64; 3],
 }
@@ -46,7 +49,8 @@ impl Vec3 {
     }
 
     pub fn unit_vector(&self) -> Self {
-        self / self.length()
+        let length = self.length();
+        Self::new(self[0]/length, self[1]/length, self[2]/length)
     }
 
     pub fn print_color(&self) {
@@ -101,7 +105,7 @@ impl DivAssign<f64> for Vec3 {
     }
 }
 
-impl Add for &Vec3{
+impl Add for Vec3{
     type Output = Vec3;
 
     fn add(self, other: Self) -> Vec3 {
@@ -115,7 +119,7 @@ impl Add for &Vec3{
     }
 }
 
-impl Sub for &Vec3{
+impl Sub for Vec3{
     type Output = Vec3;
 
     fn sub(self, other: Self) -> Vec3 {
@@ -129,7 +133,7 @@ impl Sub for &Vec3{
     }
 }
 
-impl Mul for &Vec3{
+impl Mul for Vec3{
     type Output = Vec3;
 
     fn mul(self, other: Self) -> Vec3 {
@@ -144,7 +148,7 @@ impl Mul for &Vec3{
 
 }
 
-impl Mul<f64> for &Vec3{
+impl Mul<f64> for Vec3{
     type Output = Vec3;
 
     fn mul(self, rhs: f64) -> Vec3 {
@@ -158,7 +162,7 @@ impl Mul<f64> for &Vec3{
     }
 }
 
-impl Div<f64> for &Vec3{
+impl Div<f64> for Vec3{
     type Output = Vec3;
 
     fn div(self, rhs: f64) -> Vec3 {
