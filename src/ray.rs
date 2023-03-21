@@ -15,8 +15,12 @@ impl Ray {
     }
 
     pub fn color(&self) -> Color {
-        if self.hit_sphere(Point3::new(0.0, 0.0, -1.0), 0.5) {
-            return Color::new(1.0, 0.0, 0.0);
+        let t = self.hit_sphere(Point3::new(0.0, 0.0, -1.0), 0.5);
+        if t > 0.0 {
+            // Get the normal vector of the sphere at the point of intersection.
+            let n = (self.at(t) - Vec3::new(0.0, 0.0, -1.0)).unit_vector();
+            // Convert to color.
+            return Color::new(n.x() + 1.0, n.y() + 1.0, n.z() + 1.0) * 0.5;
         }
 
         // unit_direction is a vector of length 1 that points in the direction
@@ -34,13 +38,17 @@ impl Ray {
         white * (1.0 - t) + blue * t
     }
 
-    fn hit_sphere(&self, center: Point3, radius: f64) -> bool {
+    fn hit_sphere(&self, center: Point3, radius: f64) -> f64 {
         let oc = self.origin - center;
         let a = self.direction.dot(self.direction);
         let b = oc.dot(self.direction) * 2.0;
         let c = oc.dot(oc) - radius * radius;
         let discriminant = b * b - 4.0 * a * c;
 
-        discriminant > 0.0
+        if discriminant < 0.0 {
+            -1.0
+        } else {
+            (-b - f64::sqrt(discriminant)) / (2.0 * a)
+        }
     }
 }
