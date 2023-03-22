@@ -2,6 +2,7 @@ use std::ops::{Neg, Index, MulAssign, AddAssign, DivAssign, Add, Sub, Mul, Div, 
 
 pub mod ray;
 pub mod hittable;
+pub mod camera;
 
 // TODO: Reconsider using borrow instead of copy.
 #[derive(Debug, Clone, Copy)]
@@ -52,10 +53,6 @@ impl Vec3 {
     pub fn unit_vector(&self) -> Self {
         let length = self.length();
         Self::new(self[0]/length, self[1]/length, self[2]/length)
-    }
-
-    pub fn print_color(&self) {
-        println!("{} {} {}", (self[0] * 255.999) as i64, (self[1] * 255.999) as i64, (self[2] * 255.999) as i64)
     }
 }
 
