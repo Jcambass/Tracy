@@ -1,4 +1,4 @@
-use crate::{Color, Point3, Vec3};
+use crate::{Color, Point3, Vec3, hittable::{Hittable, HitRecord}};
 
 pub struct Ray {
     pub origin: Point3,
@@ -14,13 +14,10 @@ impl Ray {
         self.origin + self.direction * t
     }
 
-    pub fn color(&self) -> Color {
-        let t = self.hit_sphere(Point3::new(0.0, 0.0, -1.0), 0.5);
-        if t > 0.0 {
-            // Get the normal vector of the sphere at the point of intersection.
-            let n = (self.at(t) - Vec3::new(0.0, 0.0, -1.0)).unit_vector();
-            // Convert to color.
-            return Color::new(n.x() + 1.0, n.y() + 1.0, n.z() + 1.0) * 0.5;
+    pub fn color(&self, world: &dyn Hittable) -> Color {
+        let mut rec = HitRecord::new();
+        if world.hit(self, 0.001, f64::INFINITY, &mut rec) {
+            return (rec.normal + Color::new(1.0, 1.0, 1.0)) * 0.5;
         }
 
         // unit_direction is a vector of length 1 that points in the direction
@@ -36,19 +33,5 @@ impl Ray {
 
         // Linear interpolation between white and blue.
         white * (1.0 - t) + blue * t
-    }
-
-    fn hit_sphere(&self, center: Point3, radius: f64) -> f64 {
-        let oc = self.origin - center;
-        let a = self.direction.length_squared();
-        let half_b = oc.dot(self.direction);
-        let c = oc.length_squared() - radius * radius;
-        let discriminant = half_b * half_b - a * c;
-
-        if discriminant < 0.0 {
-            -1.0
-        } else {
-            (-half_b - f64::sqrt(discriminant)) / a
-        }
     }
 }

@@ -1,6 +1,7 @@
 use std::ops::{Neg, Index, MulAssign, AddAssign, DivAssign, Add, Sub, Mul, Div, IndexMut};
 
 pub mod ray;
+pub mod hittable;
 
 // TODO: Reconsider using borrow instead of copy.
 #[derive(Debug, Clone, Copy)]

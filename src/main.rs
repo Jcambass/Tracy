@@ -1,4 +1,4 @@
-use tracy::{Color, Point3, Vec3, ray::Ray};
+use tracy::{Point3, Vec3, ray::Ray, hittable::{HittableList, sphere::Sphere}};
 
 // Image
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
@@ -16,6 +16,11 @@ fn main() {
     let vertical = Vec3::new(0.0, VIEWPORT_HEIGHT, 0.0);
     let lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - Vec3::new(0.0, 0.0, FOCAL_LENGTH);
 
+    // World
+    let mut world = HittableList::new();
+    world.add(Box::new(Sphere::new(Point3::new(0.0, 0.0, -1.0), 0.5)));
+    world.add(Box::new(Sphere::new(Point3::new(0.0, -100.5, -1.0), 100.0)));
+
     print!("P3\n{} {}\n255\n", IMAGE_WIDTH, IMAGE_HEIGHT);
 
     for j in (0..IMAGE_HEIGHT).rev() {
@@ -28,7 +33,7 @@ fn main() {
 
             let ray = Ray::new(origin, lower_left_corner + horizontal * u + vertical * v - origin);
 
-            let pixel_color = ray.color();
+            let pixel_color = ray.color(&world);
             pixel_color.print_color();
         }
     }
