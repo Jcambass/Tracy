@@ -16,12 +16,13 @@ pub type Point3 = Vec3;
 pub type Color = Vec3;
 
 pub fn random_float() -> f64 {
-    // Generate random number in the range [0.0, 1.0]
-    random_float_between(0.0, 1.0)
+    // Generate random number in the range [0.0, 1.0)
+    rand::thread_rng().gen_range(0.0..1.0)
 }
 
 pub fn random_float_between(min: f64, max: f64) -> f64 {
-    rand::thread_rng().gen_range(min..=max)
+    // Generate random number in the range [min, max)
+    min + (max-min) * random_float()
 }
 
 impl Vec3 {

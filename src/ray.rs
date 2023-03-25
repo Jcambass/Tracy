@@ -20,6 +20,7 @@ impl Ray {
         }
 
         let mut rec = HitRecord::new();
+        // Todo: Find out why t_min 0.0 was super slow and had apparently more surface hits than in the tutorial.
         if world.hit(self, 0.001, f64::INFINITY, &mut rec) {
             let target = rec.p + rec.normal + Vec3::random_in_unit_sphere();
             return Ray::new(rec.p, target - rec.p).color(world, depth - 1) * 0.5;

@@ -40,11 +40,11 @@ fn print_color(color: Color) {
     let mut g = color.y();
     let mut b = color.z();
 
-    // Divide the color by the number of samples.
+    // Divide the color by the number of samples and gamma-correct for gamma=2.0.
     let scale = 1.0 / SAMPLES_PER_PIXEL as f64;
-    r *= scale;
-    g *= scale;
-    b *= scale;
+    r = f64::sqrt(scale * r);
+    g = f64::sqrt(scale * g);
+    b = f64::sqrt(scale * b);
 
     // Write the translated [0, 255] value of each color component.
     println!("{} {} {}", (256.0 * r.clamp(0.0, 0.999)) as u32, (256.0 * g.clamp(0.0, 0.999)) as u32, (256.0 * b.clamp(0.0, 0.999)) as u32);
