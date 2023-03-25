@@ -1,11 +1,11 @@
-use rand::Rng;
-use tracy::{Point3, Vec3, ray::Ray, hittable::{HittableList, sphere::Sphere}, Color, camera::Camera};
+use tracy::{Point3, hittable::{HittableList, sphere::Sphere}, Color, camera::Camera, random_float};
 
 // Image
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
 const IMAGE_WIDTH: u32 = 400;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO as f64) as u32;
 const SAMPLES_PER_PIXEL: u32 = 100;
+const MAX_DEPTH: i32 = 50;
 
 fn main() {
     // World
@@ -26,18 +26,13 @@ fn main() {
                 let u = (i as f64 + random_float()) / (IMAGE_WIDTH - 1) as f64;
                 let v = (j as f64 + random_float()) / (IMAGE_HEIGHT - 1) as f64;
                 let ray = camera.get_ray(u, v);
-                color += ray.color(&world);
+                color += ray.color(&world, MAX_DEPTH);
             }
             print_color(color);
         }
     }
 
     eprint!("\nDone.\n");
-}
-
-fn random_float() -> f64 {
-    // Generate random number in the range [0.0, 1.0]
-    rand::thread_rng().gen_range(0.0..1.0)
 }
 
 fn print_color(color: Color) {

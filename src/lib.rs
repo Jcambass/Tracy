@@ -1,5 +1,7 @@
 use std::ops::{Neg, Index, MulAssign, AddAssign, DivAssign, Add, Sub, Mul, Div, IndexMut};
 
+use rand::Rng;
+
 pub mod ray;
 pub mod hittable;
 pub mod camera;
@@ -12,6 +14,15 @@ pub struct Vec3 {
 
 pub type Point3 = Vec3;
 pub type Color = Vec3;
+
+pub fn random_float() -> f64 {
+    // Generate random number in the range [0.0, 1.0]
+    random_float_between(0.0, 1.0)
+}
+
+pub fn random_float_between(min: f64, max: f64) -> f64 {
+    rand::thread_rng().gen_range(min..=max)
+}
 
 impl Vec3 {
     pub fn new(x: f64, y: f64, z: f64) -> Self {
@@ -53,6 +64,23 @@ impl Vec3 {
     pub fn unit_vector(&self) -> Self {
         let length = self.length();
         Self::new(self[0]/length, self[1]/length, self[2]/length)
+    }
+
+    pub fn random_in_unit_sphere() -> Self {
+        let mut p = Self::random_between(-1.0, 1.0);
+        while p.length_squared() >= 1.0 {
+            p = Self::random_between(-1.0, 1.0);
+        }
+
+        p
+    }
+
+    pub fn random() -> Self {
+        Self { e: [random_float(), random_float(), random_float()] }
+    }
+
+    pub fn random_between(min: f64, max: f64) -> Self {
+        Self { e: [random_float_between(min, max), random_float_between(min, max), random_float_between(min, max)] }
     }
 }
 

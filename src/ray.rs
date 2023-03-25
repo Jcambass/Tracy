@@ -14,10 +14,15 @@ impl Ray {
         self.origin + self.direction * t
     }
 
-    pub fn color(&self, world: &dyn Hittable) -> Color {
+    pub fn color(&self, world: &dyn Hittable, depth: i32) -> Color {
+        if depth <= 0 {
+            return Color::new(0.0, 0.0, 0.0)
+        }
+
         let mut rec = HitRecord::new();
         if world.hit(self, 0.001, f64::INFINITY, &mut rec) {
-            return (rec.normal + Color::new(1.0, 1.0, 1.0)) * 0.5;
+            let target = rec.p + rec.normal + Vec3::random_in_unit_sphere();
+            return Ray::new(rec.p, target - rec.p).color(world, depth - 1) * 0.5;
         }
 
         // unit_direction is a vector of length 1 that points in the direction
