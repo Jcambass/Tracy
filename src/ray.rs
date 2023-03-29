@@ -22,8 +22,14 @@ impl Ray {
         let mut rec = HitRecord::new();
         // Todo: Find out why t_min 0.0 was super slow and had apparently more surface hits than in the tutorial.
         if world.hit(self, 0.001, f64::INFINITY, &mut rec) {
-            let target = rec.p + rec.normal + Vec3::random_unit_vector();
-            return Ray::new(rec.p, target - rec.p).color(world, depth - 1) * 0.5;
+            let mut scattered = Ray::new(Point3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0));
+            let mut attenuation = Color::new(0.0, 0.0, 0.0);
+
+            if rec.material.scatter(self, &rec, &mut attenuation, &mut scattered) {
+                return attenuation * scattered.color(world, depth - 1);
+            } else {
+                return Color::new(0.0, 0.0, 0.0);
+            }
         }
 
         // unit_direction is a vector of length 1 that points in the direction

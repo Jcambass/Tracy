@@ -5,6 +5,7 @@ use rand::Rng;
 pub mod ray;
 pub mod hittable;
 pub mod camera;
+pub mod material;
 
 // TODO: Reconsider using borrow instead of copy.
 #[derive(Debug, Clone, Copy)]
@@ -50,6 +51,12 @@ impl Vec3 {
         self[0]*self[0] + self[1]*self[1] + self[2]*self[2]
     }
 
+    pub fn near_zero(&self) -> bool {
+        // Return true if the vector is close to zero in all dimensions.
+        const S: f64 = 1e-8;
+        self[0].abs() < S && self[1].abs() < S && self[2].abs() < S
+    }
+
     pub fn dot(&self, other: Self) -> f64 {
         self[0]*other[0] + self[1]*other[1] + self[2]*other[2]
     }
@@ -60,6 +67,10 @@ impl Vec3 {
             self[2]*other[0] - self[0]*other[2],
             self[0]*other[1] - self[1]*other[0],
         ]}
+    }
+
+    pub fn reflect(&self, normal: Self) -> Self {
+        *self - normal * self.dot(normal) * 2.0
     }
 
     pub fn unit_vector(&self) -> Self {

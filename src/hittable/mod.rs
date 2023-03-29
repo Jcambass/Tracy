@@ -1,11 +1,14 @@
-use crate::{Point3, Vec3, ray::Ray};
+use std::rc::Rc;
+
+use crate::{Point3, Vec3, ray::Ray, material::{Material, lambertian::Lambertian}, Color};
 
 pub mod sphere;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct HitRecord {
     pub p: Point3,
     pub normal: Vec3,
+    pub material: Rc<dyn Material>,
     pub t: f64,
     pub front_face: bool,
 }
@@ -15,6 +18,7 @@ impl HitRecord {
         Self {
             p: Point3::new(0.0, 0.0, 0.0),
             normal: Vec3::new(0.0, 0.0, 0.0),
+            material: Rc::new(Lambertian::new(Color::new(0.0, 0.0, 0.0))),
             t: 0.0,
             front_face: false,
         }
@@ -61,8 +65,8 @@ impl Hittable for HittableList {
         for object in &self.objects {
             if object.hit(ray, t_min, closest_so_far, &mut temp_record) {
                 hit_anything = true;
-                closest_so_far = temp_record.t;
-                *hit_record = temp_record;
+                closest_so_far = temp_record.clone().t;
+                *hit_record = temp_record.clone();
             }
         }
 
