@@ -1,6 +1,10 @@
 use std::rc::Rc;
 
-use crate::{Point3, Vec3, ray::Ray, material::{Material, lambertian::Lambertian}, Color};
+use crate::{
+    material::{lambertian::Lambertian, Material},
+    ray::Ray,
+    Color, Point3, Vec3,
+};
 
 pub mod sphere;
 
@@ -44,7 +48,9 @@ pub struct HittableList {
 
 impl HittableList {
     pub fn new() -> Self {
-        Self { objects: Vec::new() }
+        Self {
+            objects: Vec::new(),
+        }
     }
 
     pub fn add(&mut self, object: Box<dyn Hittable>) {

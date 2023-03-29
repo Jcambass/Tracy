@@ -1,4 +1,7 @@
-use crate::{Color, Point3, Vec3, hittable::{Hittable, HitRecord}};
+use crate::{
+    hittable::{HitRecord, Hittable},
+    Color, Point3, Vec3,
+};
 
 pub struct Ray {
     pub origin: Point3,
@@ -16,7 +19,7 @@ impl Ray {
 
     pub fn color(&self, world: &dyn Hittable, depth: i32) -> Color {
         if depth <= 0 {
-            return Color::new(0.0, 0.0, 0.0)
+            return Color::new(0.0, 0.0, 0.0);
         }
 
         let mut rec = HitRecord::new();
@@ -25,7 +28,10 @@ impl Ray {
             let mut scattered = Ray::new(Point3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0));
             let mut attenuation = Color::new(0.0, 0.0, 0.0);
 
-            if rec.material.scatter(self, &rec, &mut attenuation, &mut scattered) {
+            if rec
+                .material
+                .scatter(self, &rec, &mut attenuation, &mut scattered)
+            {
                 return attenuation * scattered.color(world, depth - 1);
             } else {
                 return Color::new(0.0, 0.0, 0.0);

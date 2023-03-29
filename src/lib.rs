@@ -1,11 +1,11 @@
-use std::ops::{Neg, Index, MulAssign, AddAssign, DivAssign, Add, Sub, Mul, Div, IndexMut};
+use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub};
 
 use rand::Rng;
 
-pub mod ray;
-pub mod hittable;
 pub mod camera;
+pub mod hittable;
 pub mod material;
+pub mod ray;
 
 // TODO: Reconsider using borrow instead of copy.
 #[derive(Debug, Clone, Copy)]
@@ -23,7 +23,7 @@ pub fn random_float() -> f64 {
 
 pub fn random_float_between(min: f64, max: f64) -> f64 {
     // Generate random number in the range [min, max)
-    min + (max-min) * random_float()
+    min + (max - min) * random_float()
 }
 
 impl Vec3 {
@@ -48,7 +48,7 @@ impl Vec3 {
     }
 
     pub fn length_squared(&self) -> f64 {
-        self[0]*self[0] + self[1]*self[1] + self[2]*self[2]
+        self[0] * self[0] + self[1] * self[1] + self[2] * self[2]
     }
 
     pub fn near_zero(&self) -> bool {
@@ -58,15 +58,17 @@ impl Vec3 {
     }
 
     pub fn dot(&self, other: Self) -> f64 {
-        self[0]*other[0] + self[1]*other[1] + self[2]*other[2]
+        self[0] * other[0] + self[1] * other[1] + self[2] * other[2]
     }
 
     pub fn cross(&self, other: Self) -> Self {
-        Self { e: [
-            self[1]*other[2] - self[2]*other[1],
-            self[2]*other[0] - self[0]*other[2],
-            self[0]*other[1] - self[1]*other[0],
-        ]}
+        Self {
+            e: [
+                self[1] * other[2] - self[2] * other[1],
+                self[2] * other[0] - self[0] * other[2],
+                self[0] * other[1] - self[1] * other[0],
+            ],
+        }
     }
 
     pub fn reflect(&self, normal: Self) -> Self {
@@ -75,7 +77,7 @@ impl Vec3 {
 
     pub fn unit_vector(&self) -> Self {
         let length = self.length();
-        Self::new(self[0]/length, self[1]/length, self[2]/length)
+        Self::new(self[0] / length, self[1] / length, self[2] / length)
     }
 
     pub fn random_in_unit_sphere() -> Self {
@@ -102,11 +104,19 @@ impl Vec3 {
     }
 
     pub fn random() -> Self {
-        Self { e: [random_float(), random_float(), random_float()] }
+        Self {
+            e: [random_float(), random_float(), random_float()],
+        }
     }
 
     pub fn random_between(min: f64, max: f64) -> Self {
-        Self { e: [random_float_between(min, max), random_float_between(min, max), random_float_between(min, max)] }
+        Self {
+            e: [
+                random_float_between(min, max),
+                random_float_between(min, max),
+                random_float_between(min, max),
+            ],
+        }
     }
 }
 
@@ -114,7 +124,9 @@ impl Neg for Vec3 {
     type Output = Self;
 
     fn neg(self) -> Self {
-        Self { e: [-self[0], -self[1], -self[2]]}
+        Self {
+            e: [-self[0], -self[1], -self[2]],
+        }
     }
 }
 
@@ -134,11 +146,7 @@ impl IndexMut<usize> for Vec3 {
 impl AddAssign for Vec3 {
     fn add_assign(&mut self, other: Self) {
         *self = Self {
-            e: [
-                self[0] + other[0],
-                self[1] + other[1],
-                self[2] + other[2],
-            ]
+            e: [self[0] + other[0], self[1] + other[1], self[2] + other[2]],
         }
     }
 }
@@ -153,71 +161,54 @@ impl MulAssign<f64> for Vec3 {
 
 impl DivAssign<f64> for Vec3 {
     fn div_assign(&mut self, rhs: f64) {
-        *self *= 1.0/rhs
+        *self *= 1.0 / rhs
     }
 }
 
-impl Add for Vec3{
+impl Add for Vec3 {
     type Output = Vec3;
 
     fn add(self, other: Self) -> Vec3 {
         Vec3 {
-            e: [
-                self[0] + other[0],
-                self[1] + other[1],
-                self[2] + other[2],
-            ]
+            e: [self[0] + other[0], self[1] + other[1], self[2] + other[2]],
         }
     }
 }
 
-impl Sub for Vec3{
+impl Sub for Vec3 {
     type Output = Vec3;
 
     fn sub(self, other: Self) -> Vec3 {
         Vec3 {
-            e: [
-                self[0] - other[0],
-                self[1] - other[1],
-                self[2] - other[2],
-            ]
+            e: [self[0] - other[0], self[1] - other[1], self[2] - other[2]],
         }
     }
 }
 
-impl Mul for Vec3{
+impl Mul for Vec3 {
     type Output = Vec3;
 
     fn mul(self, other: Self) -> Vec3 {
         Vec3 {
-            e: [
-                self[0] * other[0],
-                self[1] * other[1],
-                self[2] * other[2],
-            ]
+            e: [self[0] * other[0], self[1] * other[1], self[2] * other[2]],
         }
     }
-
 }
 
-impl Mul<f64> for Vec3{
+impl Mul<f64> for Vec3 {
     type Output = Vec3;
 
     fn mul(self, rhs: f64) -> Vec3 {
         Vec3 {
-            e: [
-                self[0] * rhs,
-                self[1] * rhs,
-                self[2] * rhs,
-            ]
+            e: [self[0] * rhs, self[1] * rhs, self[2] * rhs],
         }
     }
 }
 
-impl Div<f64> for Vec3{
+impl Div<f64> for Vec3 {
     type Output = Vec3;
 
     fn div(self, rhs: f64) -> Vec3 {
-        self * (1.0/rhs)
+        self * (1.0 / rhs)
     }
 }

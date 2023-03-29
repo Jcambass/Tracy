@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
-use crate::{Point3, ray::Ray, material::Material};
+use crate::{material::Material, ray::Ray, Point3};
 
-use super::{Hittable, HitRecord};
+use super::{HitRecord, Hittable};
 
 pub struct Sphere {
     pub center: Point3,
@@ -12,7 +12,11 @@ pub struct Sphere {
 
 impl Sphere {
     pub fn new(center: Point3, radius: f64, material: Rc<dyn Material>) -> Self {
-        Self { center, radius, material }
+        Self {
+            center,
+            radius,
+            material,
+        }
     }
 }
 

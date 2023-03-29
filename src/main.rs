@@ -1,6 +1,11 @@
 use std::rc::Rc;
 
-use tracy::{Point3, hittable::{HittableList, sphere::Sphere}, Color, camera::Camera, random_float, material::{lambertian::Lambertian, metal::Metal}};
+use tracy::{
+    camera::Camera,
+    hittable::{sphere::Sphere, HittableList},
+    material::{lambertian::Lambertian, metal::Metal},
+    random_float, Color, Point3,
+};
 
 // Image
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
@@ -15,13 +20,29 @@ fn main() {
 
     let material_ground = Lambertian::new(Color::new(0.8, 0.8, 0.0));
     let material_center = Lambertian::new(Color::new(0.7, 0.3, 0.3));
-    let material_left = Metal::new(Color::new(0.8, 0.8, 0.8));
-    let material_right = Metal::new(Color::new(0.8, 0.6, 0.2));
+    let material_left = Metal::new(Color::new(0.8, 0.8, 0.8), 0.3);
+    let material_right = Metal::new(Color::new(0.8, 0.6, 0.2), 1.0);
 
-    world.add(Box::new(Sphere::new(Point3::new(0.0, -100.5, -1.0), 100.0, Rc::new(material_ground))));
-    world.add(Box::new(Sphere::new(Point3::new(0.0, 0.0, -1.0), 0.5, Rc::new(material_center))));
-    world.add(Box::new(Sphere::new(Point3::new(-1.0, 0.0, -1.0), 0.5, Rc::new(material_left))));
-    world.add(Box::new(Sphere::new(Point3::new(1.0, 0.0, -1.0), 0.5, Rc::new(material_right))));
+    world.add(Box::new(Sphere::new(
+        Point3::new(0.0, -100.5, -1.0),
+        100.0,
+        Rc::new(material_ground),
+    )));
+    world.add(Box::new(Sphere::new(
+        Point3::new(0.0, 0.0, -1.0),
+        0.5,
+        Rc::new(material_center),
+    )));
+    world.add(Box::new(Sphere::new(
+        Point3::new(-1.0, 0.0, -1.0),
+        0.5,
+        Rc::new(material_left),
+    )));
+    world.add(Box::new(Sphere::new(
+        Point3::new(1.0, 0.0, -1.0),
+        0.5,
+        Rc::new(material_right),
+    )));
 
     // Camera
     let camera = Camera::new();
@@ -46,7 +67,7 @@ fn main() {
 }
 
 fn print_color(color: Color) {
-    let mut r= color.x();
+    let mut r = color.x();
     let mut g = color.y();
     let mut b = color.z();
 
@@ -57,6 +78,10 @@ fn print_color(color: Color) {
     b = f64::sqrt(scale * b);
 
     // Write the translated [0, 255] value of each color component.
-    println!("{} {} {}", (256.0 * r.clamp(0.0, 0.999)) as u32, (256.0 * g.clamp(0.0, 0.999)) as u32, (256.0 * b.clamp(0.0, 0.999)) as u32);
+    println!(
+        "{} {} {}",
+        (256.0 * r.clamp(0.0, 0.999)) as u32,
+        (256.0 * g.clamp(0.0, 0.999)) as u32,
+        (256.0 * b.clamp(0.0, 0.999)) as u32
+    );
 }
-
