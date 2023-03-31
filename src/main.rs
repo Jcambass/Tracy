@@ -1,10 +1,10 @@
-use std::{rc::Rc, f64::consts::PI};
+use std::{rc::Rc};
 
 use tracy::{
     camera::Camera,
     hittable::{sphere::Sphere, HittableList},
-    material::{lambertian::Lambertian, metal::Metal, dielectric::Dielectric},
-    random_float, Color, Point3,
+    material::{dielectric::Dielectric, lambertian::Lambertian, metal::Metal},
+    random_float, Color, Point3, Vec3,
 };
 
 // Image
@@ -36,7 +36,12 @@ fn main() {
     world.add(Box::new(Sphere::new(
         Point3::new(-1.0, 0.0, -1.0),
         0.5,
-        material_left,
+        material_left.clone(),
+    )));
+    world.add(Box::new(Sphere::new(
+        Point3::new(-1.0, 0.0, -1.0),
+        -0.45,
+        material_left.clone(),
     )));
     world.add(Box::new(Sphere::new(
         Point3::new(1.0, 0.0, -1.0),
@@ -45,7 +50,13 @@ fn main() {
     )));
 
     // Camera
-    let camera = Camera::new(90.0, ASPECT_RATIO);
+    let camera = Camera::new(
+        Point3::new(-2.0, 2.0, 1.0),
+        Point3::new(0.0, 0.0, -1.0),
+        Vec3::new(0.0, 1.0, 0.0),
+        20.0,
+        ASPECT_RATIO,
+    );
 
     print!("P3\n{} {}\n255\n", IMAGE_WIDTH, IMAGE_HEIGHT);
 
