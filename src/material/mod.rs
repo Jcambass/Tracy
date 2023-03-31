@@ -4,12 +4,6 @@ pub mod dielectric;
 pub mod lambertian;
 pub mod metal;
 
-pub trait Material {
-    fn scatter(
-        &self,
-        ray_in: &Ray,
-        rec: &HitRecord,
-        attenuation: &mut Color,
-        scattered: &mut Ray,
-    ) -> bool;
+pub trait Material: Sync {
+    fn scatter(&self, ray_in: &Ray, rec: &HitRecord) -> Option<(Ray, Color)>;
 }

@@ -2,6 +2,7 @@ use crate::{hittable::HitRecord, random_float, ray::Ray, Color, Vec3};
 
 use super::Material;
 
+#[derive(Clone, Copy)]
 pub struct Dielectric {
     pub index_of_refraction: f64,
 }
@@ -22,13 +23,7 @@ impl Dielectric {
 }
 
 impl Material for Dielectric {
-    fn scatter(
-        &self,
-        ray_in: &Ray,
-        rec: &HitRecord,
-        attenuation: &mut Color,
-        scattered: &mut Ray,
-    ) -> bool {
+    fn scatter(&self, ray_in: &Ray, rec: &HitRecord) -> Option<(Ray, Color)> {
         let refraction_ratio = if rec.front_face {
             1.0 / self.index_of_refraction
         } else {
@@ -47,8 +42,8 @@ impl Material for Dielectric {
                 unit_direction.refract(rec.normal, refraction_ratio)
             };
 
-        *attenuation = Color::new(1.0, 1.0, 1.0);
-        *scattered = Ray::new(rec.p, direction);
-        return true;
+        let attenuation = Color::new(1.0, 1.0, 1.0);
+        let scattered = Ray::new(rec.p, direction);
+        Some((scattered, attenuation))
     }
 }
