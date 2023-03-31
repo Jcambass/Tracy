@@ -1,8 +1,4 @@
-use crate::{
-    material::Material,
-    ray::Ray,
-    Point3, Vec3,
-};
+use crate::{material::Material, ray::Ray, Point3, Vec3};
 
 pub mod sphere;
 

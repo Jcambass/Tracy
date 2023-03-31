@@ -1,4 +1,7 @@
-use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub};
+use std::{
+    iter::Sum,
+    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub},
+};
 
 use rand::Rng;
 
@@ -41,6 +44,10 @@ impl Vec3 {
 
     pub fn z(&self) -> f64 {
         self.e[2]
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &f64> {
+        self.e.iter()
     }
 
     pub fn length(&self) -> f64 {
@@ -137,6 +144,12 @@ impl Vec3 {
                 random_float_between(min, max),
             ],
         }
+    }
+}
+
+impl Sum for Vec3 {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Vec3::new(0.0, 0.0, 0.0), |acc, x| acc + x)
     }
 }
 

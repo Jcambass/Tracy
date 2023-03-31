@@ -5,6 +5,8 @@ use tracy::{
     random_float, random_float_between, Color, Point3, Vec3,
 };
 
+use rayon::prelude::*;
+
 // Image
 const ASPECT_RATIO: f64 = 3.0 / 2.0;
 const IMAGE_WIDTH: u32 = 1200;
@@ -35,42 +37,39 @@ fn main() {
 
     print!("P3\n{} {}\n255\n", IMAGE_WIDTH, IMAGE_HEIGHT);
 
-    for j in (0..IMAGE_HEIGHT).rev() {
-        eprint!("\rScanlines remaining: {} ", j);
-        for i in 0..IMAGE_WIDTH {
-            let mut color = Color::new(0.0, 0.0, 0.0);
-            for _ in 0..SAMPLES_PER_PIXEL {
-                let u = (i as f64 + random_float()) / (IMAGE_WIDTH - 1) as f64;
-                let v = (j as f64 + random_float()) / (IMAGE_HEIGHT - 1) as f64;
-                let ray = camera.get_ray(u, v);
-                color += ray.color(&world, MAX_DEPTH);
-            }
-            print_color(color);
-        }
+    let image = (0..IMAGE_HEIGHT)
+        .into_par_iter()
+        .rev()
+        .flat_map(|j| {
+            (0..IMAGE_WIDTH)
+                .flat_map(|i| {
+                    let color: Color = (0..SAMPLES_PER_PIXEL)
+                        .map(|_| {
+                            let u = (i as f64 + random_float()) / (IMAGE_WIDTH - 1) as f64;
+                            let v = (j as f64 + random_float()) / (IMAGE_HEIGHT - 1) as f64;
+                            let ray = camera.get_ray(u, v);
+                            ray.color(&world, MAX_DEPTH)
+                        })
+                        .sum();
+                    color
+                        .iter()
+                        .map(|c| {
+                            // Divide the color by the number of samples and gamma-correct for gamma=2.0.
+                            (255.99 * (c / SAMPLES_PER_PIXEL as f64).sqrt().max(0.0).min(1.0)) as u8
+                        })
+                        .collect::<Vec<u8>>()
+                })
+                .collect::<Vec<u8>>()
+        })
+        .collect::<Vec<u8>>();
+
+    for col in image.chunks(3) {
+        println!("{} {} {}", col[0], col[1], col[2]);
     }
 
     eprint!("\nDone.\n");
 }
 
-fn print_color(color: Color) {
-    let mut r = color.x();
-    let mut g = color.y();
-    let mut b = color.z();
-
-    // Divide the color by the number of samples and gamma-correct for gamma=2.0.
-    let scale = 1.0 / SAMPLES_PER_PIXEL as f64;
-    r = f64::sqrt(scale * r);
-    g = f64::sqrt(scale * g);
-    b = f64::sqrt(scale * b);
-
-    // Write the translated [0, 255] value of each color component.
-    println!(
-        "{} {} {}",
-        (256.0 * r.clamp(0.0, 0.999)) as u32,
-        (256.0 * g.clamp(0.0, 0.999)) as u32,
-        (256.0 * b.clamp(0.0, 0.999)) as u32
-    );
-}
 fn test_scene() -> HittableList {
     let mut world = HittableList::default();
 
@@ -149,25 +148,13 @@ fn random_scene() -> HittableList {
     }
 
     let material1 = Dielectric::new(1.5);
-    world.add(Sphere::new(
-        Point3::new(0.0, 1.0, 0.0),
-        1.0,
-        material1,
-    ));
+    world.add(Sphere::new(Point3::new(0.0, 1.0, 0.0), 1.0, material1));
 
     let material2 = Lambertian::new(Color::new(0.4, 0.2, 0.1));
-    world.add(Sphere::new(
-        Point3::new(-4.0, 1.0, 0.0),
-        1.0,
-        material2,
-    ));
+    world.add(Sphere::new(Point3::new(-4.0, 1.0, 0.0), 1.0, material2));
 
     let material3 = Metal::new(Color::new(0.7, 0.6, 0.5), 0.0);
-    world.add(Sphere::new(
-        Point3::new(4.0, 1.0, 0.0),
-        1.0,
-        material3,
-    ));
+    world.add(Sphere::new(Point3::new(4.0, 1.0, 0.0), 1.0, material3));
 
     world
 }
