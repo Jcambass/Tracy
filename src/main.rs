@@ -1,3 +1,10 @@
+use std::thread;
+
+use crossbeam::channel::{unbounded, Sender};
+use sfml::{
+    graphics::{Color as SFMLColor, RenderTarget, RenderWindow, Sprite, Texture},
+    window::{Event, Style},
+};
 use tracy::{
     camera::Camera,
     hittable::{sphere::Sphere, HittableList},
@@ -15,6 +22,64 @@ const SAMPLES_PER_PIXEL: u32 = 500;
 const MAX_DEPTH: i32 = 50;
 
 fn main() {
+    // UI
+
+    let mut window = RenderWindow::new(
+        (IMAGE_WIDTH, IMAGE_HEIGHT),
+        "Tracy",
+        Style::CLOSE,
+        &Default::default(),
+    );
+
+    let mut texture = Texture::new().unwrap();
+    if !texture.create(IMAGE_WIDTH, IMAGE_HEIGHT) {
+        panic!("Unable to create texture");
+    };
+
+    texture.set_smooth(false);
+
+    let (s, r) = unbounded();
+
+    thread::spawn(|| {
+        render(s);
+    });
+
+    while window.is_open() {
+        // Event processing
+        while let Some(event) = window.poll_event() {
+            // Request closing for the window
+            if event == Event::Closed {
+                window.close();
+            }
+        }
+
+        if let Ok(pixel) = r.recv() {
+            unsafe {
+                texture.update_from_pixels(&pixel.color, 1, 1, pixel.x, pixel.y);
+            }
+
+            window.clear(SFMLColor::WHITE);
+
+            let mut sprite = Sprite::new();
+            sprite.set_texture(&texture, true);
+            window.draw(&sprite);
+        };
+
+        window.display();
+    }
+
+    if !texture.copy_to_image().unwrap().save_to_file("out.png") {
+        eprint!("Error while saving PNG file!");
+    };
+}
+
+struct Pixel {
+    pub x: u32,
+    pub y: u32,
+    pub color: [u8; 4],
+}
+
+fn render(s: Sender<Pixel>) {
     // World
     let world = random_scene();
 
@@ -35,39 +100,45 @@ fn main() {
         dist_to_focus,
     );
 
-    print!("P3\n{} {}\n255\n", IMAGE_WIDTH, IMAGE_HEIGHT);
+    eprintln!("Start Render!");
 
-    let image = (0..IMAGE_HEIGHT)
-        .into_par_iter()
-        .rev()
-        .flat_map(|j| {
-            (0..IMAGE_WIDTH)
-                .flat_map(|i| {
-                    let color: Color = (0..SAMPLES_PER_PIXEL)
-                        .map(|_| {
-                            let u = (i as f64 + random_float()) / (IMAGE_WIDTH - 1) as f64;
-                            let v = (j as f64 + random_float()) / (IMAGE_HEIGHT - 1) as f64;
-                            let ray = camera.get_ray(u, v);
-                            ray.color(&world, MAX_DEPTH)
-                        })
-                        .sum();
-                    color
-                        .iter()
-                        .map(|c| {
-                            // Divide the color by the number of samples and gamma-correct for gamma=2.0.
-                            (255.99 * (c / SAMPLES_PER_PIXEL as f64).sqrt().max(0.0).min(1.0)) as u8
-                        })
-                        .collect::<Vec<u8>>()
+    (0..IMAGE_HEIGHT).into_par_iter().rev().for_each(|j| {
+        (0..IMAGE_WIDTH).for_each(|i| {
+            let color: Color = (0..SAMPLES_PER_PIXEL)
+                .map(|_| {
+                    let u = (i as f64 + random_float()) / (IMAGE_WIDTH - 1) as f64;
+                    let v = (j as f64 + random_float()) / (IMAGE_HEIGHT - 1) as f64;
+                    let ray = camera.get_ray(u, v);
+                    ray.color(&world, MAX_DEPTH)
                 })
-                .collect::<Vec<u8>>()
-        })
-        .collect::<Vec<u8>>();
+                .sum();
 
-    for col in image.chunks(3) {
-        println!("{} {} {}", col[0], col[1], col[2]);
-    }
+            s.send(Pixel {
+                x: i,
+                y: IMAGE_HEIGHT - j,
+                color: [
+                    (255.99
+                        * (color.x() / SAMPLES_PER_PIXEL as f64)
+                            .sqrt()
+                            .max(0.0)
+                            .min(1.0)) as u8,
+                    (255.99
+                        * (color.y() / SAMPLES_PER_PIXEL as f64)
+                            .sqrt()
+                            .max(0.0)
+                            .min(1.0)) as u8,
+                    (255.99
+                        * (color.z() / SAMPLES_PER_PIXEL as f64)
+                            .sqrt()
+                            .max(0.0)
+                            .min(1.0)) as u8,
+                    255,
+                ],
+            }).unwrap();
+        });
+    });
 
-    eprint!("\nDone.\n");
+    eprintln!("\nDone.");
 }
 
 fn test_scene() -> HittableList {
