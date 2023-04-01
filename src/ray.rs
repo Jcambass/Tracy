@@ -3,11 +3,16 @@ use crate::{hittable::Hittable, Color, Point3, Vec3};
 pub struct Ray {
     pub origin: Point3,
     pub direction: Vec3,
+    pub time: f64,
 }
 
 impl Ray {
-    pub fn new(origin: Point3, direction: Vec3) -> Self {
-        Self { origin, direction }
+    pub fn new(origin: Point3, direction: Vec3, time: Option<f64>) -> Self {
+        Self {
+            origin,
+            direction,
+            time: if let Some(t) = time { t } else { 0.0 },
+        }
     }
 
     pub fn at(&self, t: f64) -> Point3 {

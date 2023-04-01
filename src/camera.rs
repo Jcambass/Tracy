@@ -1,6 +1,6 @@
 use std::f64::consts::PI;
 
-use crate::{ray::Ray, Point3, Vec3};
+use crate::{random_float_between, ray::Ray, Point3, Vec3};
 
 pub struct Camera {
     origin: Point3,
@@ -10,6 +10,7 @@ pub struct Camera {
     u: Vec3,
     v: Vec3,
     lens_radius: f64,
+    shutter_time: (f64, f64),
 }
 
 impl Camera {
@@ -21,6 +22,7 @@ impl Camera {
         aspect_ratio: f64,
         aperture: f64,
         focus_dist: f64,
+        shutter_time: Option<(f64, f64)>,
     ) -> Self {
         let theta = Self::degrees_to_radians(vfov);
         let h = f64::tan(theta / 2.0);
@@ -46,6 +48,11 @@ impl Camera {
             u,
             v,
             lens_radius,
+            shutter_time: if let Some(t) = shutter_time {
+                t
+            } else {
+                (0.0, 0.0)
+            },
         }
     }
 
@@ -60,6 +67,10 @@ impl Camera {
         Ray::new(
             self.origin + offset,
             self.lower_left_corner + self.horizontal * s + self.vertical * t - self.origin - offset,
+            Some(random_float_between(
+                self.shutter_time.0,
+                self.shutter_time.1,
+            )),
         )
     }
 }

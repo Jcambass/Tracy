@@ -1,5 +1,6 @@
 use crate::{material::Material, ray::Ray, Point3, Vec3};
 
+pub mod moving_sphere;
 pub mod sphere;
 
 pub struct HitRecord<'a> {

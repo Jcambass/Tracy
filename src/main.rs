@@ -7,7 +7,7 @@ use sfml::{
 };
 use tracy::{
     camera::Camera,
-    hittable::{sphere::Sphere, HittableList},
+    hittable::{sphere::Sphere, HittableList, moving_sphere::MovingSphere},
     material::{dielectric::Dielectric, lambertian::Lambertian, metal::Metal},
     random_float, random_float_between, Color, Point3, Vec3,
 };
@@ -18,7 +18,7 @@ use rayon::prelude::*;
 const ASPECT_RATIO: f64 = 3.0 / 2.0;
 const IMAGE_WIDTH: u32 = 1200;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO as f64) as u32;
-const SAMPLES_PER_PIXEL: u32 = 500;
+const SAMPLES_PER_PIXEL: u32 = 100;
 const MAX_DEPTH: i32 = 50;
 
 fn main() {
@@ -98,6 +98,7 @@ fn render(s: Sender<Pixel>) {
         ASPECT_RATIO,
         aperture,
         dist_to_focus,
+        Some((0.0, 1.0)),
     );
 
     eprintln!("Start Render!");
@@ -134,13 +135,15 @@ fn render(s: Sender<Pixel>) {
                             .min(1.0)) as u8,
                     255,
                 ],
-            }).unwrap();
+            })
+            .unwrap();
         });
     });
 
     eprintln!("\nDone.");
 }
 
+#[allow(dead_code)]
 fn test_scene() -> HittableList {
     let mut world = HittableList::default();
 
@@ -178,6 +181,7 @@ fn test_scene() -> HittableList {
     world
 }
 
+#[allow(dead_code)]
 fn random_scene() -> HittableList {
     let mut world = HittableList::default();
 
@@ -202,7 +206,8 @@ fn random_scene() -> HittableList {
                     // diffuse
                     let albedo = Color::random() * Color::random();
                     let material = Lambertian::new(albedo);
-                    world.add(Sphere::new(center, 0.2, material));
+                    let center2 = center + Point3::new(0.0, random_float_between(0.0, 0.5), 0.0);
+                    world.add(MovingSphere::new(center, center2, 0.0, 1.0, 0.2, material));
                 } else if choose_mat < 0.95 {
                     // metal
                     let albedo = Color::random_between(0.5, 1.0);
