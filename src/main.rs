@@ -1,8 +1,10 @@
 use std::thread;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
 
 use crossbeam::channel::{unbounded, Sender};
 use sfml::{
-    graphics::{Color as SFMLColor, RenderTarget, RenderWindow, Sprite, Texture},
+    graphics::{Color as SFMLColor, Font, RenderTarget, RenderWindow, Sprite, Text, Texture, Transformable},
     window::{Event, Style},
 };
 use tracy::{
@@ -16,7 +18,7 @@ use rayon::prelude::*;
 
 // Image
 const ASPECT_RATIO: f64 = 3.0 / 2.0;
-const IMAGE_WIDTH: u32 = 1200;
+const IMAGE_WIDTH: u32 = 240;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO as f64) as u32;
 const SAMPLES_PER_PIXEL: u32 = 100;
 const MAX_DEPTH: i32 = 50;
@@ -32,17 +34,28 @@ fn main() {
     );
 
     let mut texture = Texture::new().unwrap();
+    
     if !texture.create(IMAGE_WIDTH, IMAGE_HEIGHT) {
         panic!("Unable to create texture");
-    };
+    }
 
     texture.set_smooth(false);
+
+    // Load a font for rendering text
+    let font = unsafe {
+        Font::from_memory(include_bytes!("/System/Library/Fonts/Helvetica.ttc"))
+            .expect("Failed to load font")
+    };
 
     let (s, r) = unbounded();
 
     thread::spawn(|| {
         render(s);
     });
+
+    let total_pixels = IMAGE_WIDTH * IMAGE_HEIGHT;
+    let mut pixels_rendered = 0u32;
+    let mut rendering_complete = false;
 
     while window.is_open() {
         // Event processing
@@ -53,24 +66,60 @@ fn main() {
             }
         }
 
-        if let Ok(pixel) = r.recv() {
-            unsafe {
-                texture.update_from_pixels(&pixel.color, 1, 1, pixel.x, pixel.y);
+        // Process all pending messages without blocking
+        while let Ok(msg) = r.try_recv() {
+            match msg {
+                RenderMessage::Pixel(pixel) => {
+                    unsafe {
+                        texture.update_from_pixels(&pixel.color, 1, 1, pixel.x, pixel.y);
+                    }
+                    pixels_rendered += 1;
+                }
+                RenderMessage::Progress(count) => {
+                    pixels_rendered = count;
+                }
+                RenderMessage::Done => {
+                    rendering_complete = true;
+                    eprintln!("Rendering complete!");
+                }
             }
+        }
 
-            window.clear(SFMLColor::WHITE);
+        window.clear(SFMLColor::rgb(30, 30, 30));
 
+        if rendering_complete {
+            // Show the final rendered image
             let mut sprite = Sprite::new();
             sprite.set_texture(&texture, true);
             window.draw(&sprite);
-        };
+        } else {
+            // Show progress text in the center of the window
+            let progress_text = format!(
+                "Beep Boop..Tracing..\n\n{}/{} pixels",
+                pixels_rendered, total_pixels
+            );
+            
+            let mut text = Text::new(&progress_text, &font, 24);
+            text.set_fill_color(SFMLColor::WHITE);
+            
+            // Center the text
+            let text_bounds = text.local_bounds();
+            text.set_position((
+                (IMAGE_WIDTH as f32 - text_bounds.width) / 2.0 - text_bounds.left,
+                (IMAGE_HEIGHT as f32 - text_bounds.height) / 2.0 - text_bounds.top,
+            ));
+            
+            window.draw(&text);
+        }
 
         window.display();
     }
+}
 
-    if !texture.copy_to_image().unwrap().save_to_file("out.png") {
-        eprint!("Error while saving PNG file!");
-    };
+enum RenderMessage {
+    Pixel(Pixel),
+    Progress(u32), // Number of pixels rendered so far
+    Done,
 }
 
 struct Pixel {
@@ -79,22 +128,21 @@ struct Pixel {
     pub color: [u8; 4],
 }
 
-fn render(s: Sender<Pixel>) {
+fn render(s: Sender<RenderMessage>) {
     // World
-    let world = random_scene();
+    let world = sebi_scene();
 
-    // Camera
-    let lookfrom = Point3::new(13.0, 2.0, 3.0);
-    let lookat = Point3::new(0.0, 0.0, 0.0);
+    let lookfrom = Point3::new(4.5, 2.5, 18.0);
+    let lookat = Point3::new(4.5, 1.8, 0.0);
     let vup = Vec3::new(0.0, 1.0, 0.0);
-    let dist_to_focus = 10.0;
-    let aperture = 0.1;
+    let dist_to_focus = 18.0;
+    let aperture = 0.05;
 
     let camera = Camera::new(
         lookfrom,
         lookat,
         vup,
-        20.0,
+        50.0,
         ASPECT_RATIO,
         aperture,
         dist_to_focus,
@@ -102,6 +150,8 @@ fn render(s: Sender<Pixel>) {
     );
 
     eprintln!("Start Render!");
+
+    let pixel_count = Arc::new(AtomicU32::new(0));
 
     (0..IMAGE_HEIGHT).into_par_iter().rev().for_each(|j| {
         (0..IMAGE_WIDTH).for_each(|i| {
@@ -114,7 +164,7 @@ fn render(s: Sender<Pixel>) {
                 })
                 .sum();
 
-            s.send(Pixel {
+            let result = s.send(RenderMessage::Pixel(Pixel {
                 x: i,
                 y: IMAGE_HEIGHT - j,
                 color: [
@@ -135,12 +185,116 @@ fn render(s: Sender<Pixel>) {
                             .min(1.0)) as u8,
                     255,
                 ],
-            })
-            .unwrap();
+            }));
+            
+            // Update counter and send progress every 100 pixels
+            let count = pixel_count.fetch_add(1, Ordering::Relaxed) + 1;
+            if count % 100 == 0 {
+                let _ = s.send(RenderMessage::Progress(count));
+            }
+            
+            // If send fails, window was closed, so we can stop rendering
+            if result.is_err() {
+                return;
+            }
         });
     });
 
-    eprintln!("\nDone.");
+    // Send completion message
+    let _ = s.send(RenderMessage::Done);
+}
+
+fn sebi_scene() -> HittableList {
+    let mut world = HittableList::default();
+    let m1 = Lambertian::new(Color::new(0.5, 0.5, 0.5));
+    world.add(Sphere::new(
+        Point3::new(0.0, -1000.0, 0.0),
+        1000.0,
+        m1,
+    ));
+
+    let sphere_radius = 0.3;
+    let spacing = 0.7;
+    let primary_mat = Metal::new(Color::new(0.8, 0.2, 0.2), 0.1);
+    let secondary_mat = Dielectric::new(1.5);
+    
+    world.add(Sphere::new(Point3::new(-2.0 + spacing * 2.0, sphere_radius, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(5.0, sphere_radius + spacing * 3.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-6.0, sphere_radius + spacing * 1.5, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-2.0, sphere_radius + spacing * 3.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-2.0, sphere_radius + spacing * 2.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(5.0 + spacing * 1.3, sphere_radius + spacing * 2.5, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-6.0, sphere_radius + spacing * 0.5, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(7.8 + spacing * 0.5, sphere_radius + spacing * 3.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-6.0 + spacing * 0.7, sphere_radius, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(7.8 + spacing, sphere_radius, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-2.0 + spacing * 2.0, sphere_radius + spacing, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(1.5, sphere_radius + spacing * 3.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(7.8, sphere_radius + spacing * 3.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(13.2 + spacing, sphere_radius + spacing * 1.5, 0.0), sphere_radius, secondary_mat));
+    world.add(Sphere::new(Point3::new(7.8, sphere_radius, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(13.2 + spacing * 1.5, sphere_radius + spacing * 2.5, 0.0), sphere_radius, secondary_mat));
+    world.add(Sphere::new(Point3::new(7.8 + spacing, sphere_radius + spacing * 3.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(13.2 + spacing * 0.5, sphere_radius + spacing * 3.0, 0.0), sphere_radius, secondary_mat));
+    world.add(Sphere::new(Point3::new(10.6 + spacing * 2.0, sphere_radius + spacing * 3.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(13.2, sphere_radius + spacing * 2.5, 0.0), sphere_radius, secondary_mat));
+    world.add(Sphere::new(Point3::new(6.5, 0.7, -4.5), 0.7, Metal::new(Color::new(0.2, 0.8, 0.3), 0.1)));
+    world.add(Sphere::new(Point3::new(10.6 + spacing, sphere_radius + spacing * 3.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(7.8, sphere_radius + spacing * 2.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(1.5 + spacing * 0.5, sphere_radius + spacing * 2.5, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-6.0, sphere_radius + spacing * 2.5, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(5.0, sphere_radius, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(10.6 + spacing, sphere_radius + spacing * 2.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(0.5, 1.0, -4.0), 1.0, Dielectric::new(1.5)));
+    world.add(Sphere::new(Point3::new(10.6, sphere_radius + spacing * 3.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(5.0 + spacing * 0.7, sphere_radius + spacing * 1.5, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(2.0, 0.55, -8.0), 0.55, Metal::new(Color::new(0.95, 0.6, 0.2), 0.15)));
+    world.add(Sphere::new(Point3::new(5.0 + spacing * 2.0, sphere_radius + spacing * 2.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(5.0 + spacing * 2.0, sphere_radius + spacing, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-2.0 + spacing * 2.0, sphere_radius + spacing * 2.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(8.5, 0.8, -3.5), 0.8, Metal::new(Color::new(0.95, 0.85, 0.3), 0.0)));
+    world.add(Sphere::new(Point3::new(1.5 + spacing, sphere_radius, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(7.8 + spacing * 2.0, sphere_radius + spacing * 3.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-6.0 + spacing * 2.1, sphere_radius, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(5.0, 0.6, -7.0), 0.6, Lambertian::new(Color::new(0.8, 0.3, 0.7))));
+    world.add(Sphere::new(Point3::new(-6.0 + spacing * 1.4, sphere_radius + spacing * 0.5, 0.0), sphere_radius, primary_mat));
+    
+    world.add(Sphere::new(Point3::new(-6.0 + spacing * 2.8, sphere_radius + spacing * 1.5, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(5.0 + spacing * 2.0, sphere_radius, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-6.0 + spacing * 2.8, sphere_radius + spacing * 0.5, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(7.8 + spacing * 2.0, sphere_radius + spacing * 2.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(7.8, sphere_radius + spacing, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(7.8 + spacing * 1.5, sphere_radius, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-6.0, 0.4, -6.5), 0.4, Lambertian::new(Color::new(0.9, 0.4, 0.8))));
+    world.add(Sphere::new(Point3::new(10.6 + spacing, sphere_radius + spacing, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-6.0 + spacing * 2.8, sphere_radius + spacing * 2.5, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(5.0, sphere_radius + spacing * 2.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(1.5 + spacing * 2.0, sphere_radius + spacing * 3.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(7.8 + spacing * 0.5, sphere_radius, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(13.2 + spacing * 1.5, sphere_radius + spacing * 2.0, 0.0), sphere_radius, secondary_mat));
+    world.add(Sphere::new(Point3::new(-7.0, 0.6, -4.0), 0.6, Lambertian::new(Color::new(0.2, 0.4, 0.8))));
+    world.add(Sphere::new(Point3::new(-2.0, sphere_radius, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(3.0, 0.5, -6.0), 0.5, Metal::new(Color::new(0.4, 0.9, 0.4), 0.0)));
+    world.add(Sphere::new(Point3::new(-6.0 + spacing * 1.4, sphere_radius + spacing * 1.5, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(7.8 + spacing * 2.0, sphere_radius, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-2.0 + spacing * 2.0, sphere_radius + spacing * 3.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(13.2 + spacing, sphere_radius + spacing * 3.0, 0.0), sphere_radius, secondary_mat));
+    world.add(Sphere::new(Point3::new(-2.0 + spacing, sphere_radius + spacing * 1.5, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(13.2 + spacing * 0.75, sphere_radius + spacing * 0.3, 0.0), sphere_radius * 0.8, secondary_mat));
+    world.add(Sphere::new(Point3::new(-3.5, 0.7, -7.5), 0.7, Metal::new(Color::new(0.9, 0.5, 0.1), 0.2)));
+    world.add(Sphere::new(Point3::new(10.6 + spacing, sphere_radius, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-9.0, 0.5, -5.0), 0.5, Dielectric::new(1.5)));
+    world.add(Sphere::new(Point3::new(5.0 + spacing * 2.0, sphere_radius + spacing * 3.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-4.0, 0.8, -5.0), 0.8, Lambertian::new(Color::new(0.3, 0.6, 0.9))));
+    world.add(Sphere::new(Point3::new(1.5 + spacing * 1.5, sphere_radius + spacing * 2.5, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-1.0, 0.65, -5.5), 0.65, Metal::new(Color::new(0.9, 0.8, 0.2), 0.05)));
+    world.add(Sphere::new(Point3::new(1.5 + spacing, sphere_radius + spacing, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(7.8 + spacing * 2.0, sphere_radius + spacing, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(-2.0, sphere_radius + spacing, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(1.5 + spacing, sphere_radius + spacing * 2.0, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(5.0, sphere_radius + spacing, 0.0), sphere_radius, primary_mat));
+    world.add(Sphere::new(Point3::new(7.8 + spacing * 1.5, sphere_radius + spacing * 3.0, 0.0), sphere_radius, primary_mat));
+    world
 }
 
 #[allow(dead_code)]

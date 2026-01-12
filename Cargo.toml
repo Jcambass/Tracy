@@ -1,7 +1,7 @@
 [package]
 name = "tracy"
-version = "0.1.0"
-edition = "2021"
+version = "0.1.86"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -9,4 +9,10 @@ edition = "2021"
 crossbeam = "0.8.2"
 rand="0.8.5"
 rayon = "1.7"
-sfml = "0.20.0"
+sfml = "0.21.0"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
