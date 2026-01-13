@@ -41,9 +41,9 @@ fn main() {
 
     texture.set_smooth(false);
 
-    // Load a font for rendering text
+    // Load a font for rendering text (embedded open-source DejaVu Sans)
     let font = unsafe {
-        Font::from_memory(include_bytes!("/System/Library/Fonts/Helvetica.ttc"))
+        Font::from_memory(include_bytes!("../DejaVuSans.ttf"))
             .expect("Failed to load font")
     };
 
